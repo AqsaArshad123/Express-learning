@@ -2,40 +2,41 @@ import express from "express";
 
 const app=express();
 
+//Express Middleware (use to parse incoming request bodies in JSON format)
+app.use(express.json()); 
+
 const PORT= process.env.PORT || 3000;
 
 
-//fpr ID params
+//for ID params
 const allUsers=[
         {id:1, username:"Aqsa", displayName:"aqsa"},
         {id:2, username:"Laiba", displayName:"laiba"},
-        {id:3, username:"Irum", displayName:"irum"}
-    ];
+        {id:3, username:"Irum", displayName:"irum"},
+        {id:4, username:"Zani", displayName:"zani"},
+        {id:5, username:"Shamir", displayName:"shamir"},
+        {id:6, username:"Pakiza", displayName:"pakiza"}
+        ];
 
 // app.get("/", (request,response)=>{
 //     response.send("Hello");
 // })
 
 
-//return status 201 is all correct status (response json object)
 app.get("/", (request,response)=>{
     response.status(201).send({msg:"Hello!"});
 });
 
 //Array used
-app.get('/api/users', (request,response)=>{
-    response.send(allUsers)
-});
+// app.get('/api/users', (request,response)=>{
+//     response.send(allUsers)
+// });
 
-//Within route array
-app.get('/api/products', (request,response)=>{
-    response.send([
-        {id:345, name:"concealer", price:"2000"}
-    ])
-});
 
-//getting based on one unique identifier
-//route Parameters
+////////////////////////////////////////
+
+//Route Parameters
+
 app.get('/api/users/:id', (request,response)=>{
 console.log(request.params);
 
@@ -56,6 +57,51 @@ if(!findUser) return response.sendStatus(404); //for not found status
 //otherwise
 return response.send(findUser);
 });
+
+
+
+///////////////////////////////////////
+
+//Query Parameters
+app.get("/api/users", (request,response)=>{
+    console.log(request.query);
+    const {query: {filter, value},}=request; //destructured query from request
+
+
+//Assigning filtered data to a specific variable
+
+if (filter && value){ // // to check if filter and value are undefined
+    const filteredUsers= allUsers.filter((user)=>user[filter].includes(value));  
+return response.send(filteredUsers);
+}
+   response.send(allUsers);
+});
+
+//////////////////////////////////////
+
+//POST Request
+
+
+app.post('/api/users', (request,response)=>{
+    const{body}=request;
+    const newUser= {id:allUsers[allUsers.length-1].id+1,...body}; //spread operator on body object to take all the fields from body object
+    allUsers.push(newUser);
+    return response.status(201).send(newUser);
+})
+
+///////////////////////
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
