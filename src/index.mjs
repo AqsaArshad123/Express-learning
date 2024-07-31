@@ -87,16 +87,81 @@ app.post('/api/users', (request,response)=>{
     const newUser= {id:allUsers[allUsers.length-1].id+1,...body}; //spread operator on body object to take all the fields from body object
     allUsers.push(newUser);
     return response.status(201).send(newUser);
-})
+});
 
+
+// Additionall Validations examples of POST
+/*
+app.post('/api/users',(request,response)=>{
+    const {username, displayName}=request.body;
+
+    if(!username || ! displayName) return response.status(400).send({msg:"Field Missing"});
+
+    const newUser= {id:allUsers[allUsers.length-1].id+1,...body}; 
+    allUsers.push(newUser);
+    return response.status(201).send(newUser);
+});
+*/
 ///////////////////////
 
 
 
+//PUT Request (updating enture resource)
+
+app.put('/api/users/:id',(request,response)=>{
+const {body, params:{id},}=request;
+
+const parsedID=parseInt(id);
+if(isNaN(parsedID)) return response.sendStatus(400);
+
+const findUserIndex=allUsers.findIndex((user)=>user.id===parsedID);
+//if no user found with ID, it returns false which is -1
+if (findUserIndex===-1) return response.sendStatus(404);
+
+//updating at specified id
+allUsers[findUserIndex]={id:parsedID,...body}; //everything else will come from body object except id
+
+return response.sendStatus(200);
+
+});
 
 
+////////////////////////
+
+//PATCH Request
 
 
+app.patch('/api/users/:id', (request,response)=>{
+const {body, params:{id},}=request;
+
+const parsedID=parseInt(id);
+if(isNaN(parsedID)) return response.sendStatus(400);
+
+const findUserIndex=allUsers.findIndex((user)=>user.id===parsedID);
+if (findUserIndex===-1) return response.sendStatus(404);
+
+allUsers[findUserIndex]={...allUsers[findUserIndex],...body}; 
+//taking all the key value pairs of specified user and putting in new obj, then taking from request body so it will overwrite it.
+return response.sendStatus(200);
+});
+
+
+//////////////////////////
+
+//DELETE Request
+
+app.delete('/api/users/:id',(request,response)=>{
+const { params:{id},}=request;
+
+const parsedID=parseInt(id);
+if(isNaN(parsedID)) return response.sendStatus(400);
+
+const findUserIndex=allUsers.findIndex((user)=>user.id===parsedID);
+if (findUserIndex===-1) return response.sendStatus(404);
+
+allUsers.splice(findUserIndex,1); //1 is delete count in splice function e.g in case ofcount=2 it deletes 2 elements at(after) the index provided
+return response.sendStatus(200);
+});
 
 
 
