@@ -1,9 +1,48 @@
-import express from "express";
+import express, { request, response } from "express";
 
 const app=express();
 
 //Express Middleware (use to parse incoming request bodies in JSON format)
+//regiester middleware (app.use) before using routes other wise those routes wont work (Order matters)
 app.use(express.json()); 
+
+
+
+const loggingMiddleware=(request,response,next)=>{
+    console.log(`${request.method}- ${request.url}`);
+next();
+}
+
+//for using globally
+//app.use(loggingMiddleware); //will work only for the routes it is called before
+
+////////////////////////
+
+//pasing 2 or more middlewares in app use
+// app.use (loggingMiddleware,(request,response,next)=>{
+//     console.log(`Finished Log..`);
+// next();
+// });
+
+
+///////////////////////////////
+
+// Middleware
+const handleUserByIndex=(request,response,next)=>{
+const { params:{id},}=request;
+
+const parsedID=parseInt(id);
+if(isNaN(parsedID)) return response.sendStatus(400);
+
+const findUserIndex=allUsers.findIndex((user)=>user.id===parsedID);
+if (findUserIndex===-1) return response.sendStatus(404);
+//no direct method to pass this info from one middleware to other so 
+//Dynamically attaching properties to request object
+request.findUserIndex=findUserIndex;
+next();
+
+};
+
 
 const PORT= process.env.PORT || 3000;
 
@@ -18,64 +57,46 @@ const allUsers=[
         {id:6, username:"Pakiza", displayName:"pakiza"}
         ];
 
-// app.get("/", (request,response)=>{
-//     response.send("Hello");
-// })
 
+//passing middleware as arg for just particular
+// app.get("/",loggingMiddleware, (request,response)=>{
+//     response.status(201).send({msg:"Hello!"});
+// });
 
-app.get("/", (request,response)=>{
+//instead of variable, direct use
+
+app.get("/",(request,response,next)=>{
+// 2 or more middlewares so we send back a response (Allows writing additional logic)
+console.log('Base URL');
+next();
+}, (request,response,next)=>{
+console.log('Base URL1');
+next();
+},(request,response,next)=>{
+console.log('Base URL2');
+next();
+},(request,response)=>{ 
     response.status(201).send({msg:"Hello!"});
 });
-
-//Array used
-// app.get('/api/users', (request,response)=>{
-//     response.send(allUsers)
-// });
 
 
 ////////////////////////////////////////
 
 //Route Parameters
 
-app.get('/api/users/:id', (request,response)=>{
-console.log(request.params);
 
-//we see that id is int and the user requested in string format so for this converted to integer
-const parsedID=parseInt(request.params.id);
-console.log(parsedID); 
+//GET Request
 
-//if user enters any invalid thing like string of alphabets(non-numeric), then it will give 'NaN' so applying condition
-if (isNaN(parsedID)) return response.status(400).send({msg: "Bad Request. Invalid ID"});
+app.get('/api/users/:id',handleUserByIndex, (request,response)=>{
+const {findUserIndex}=request;
 
-//logic to find user (passing in call back function)
-const findUser=allUsers.find((user) => user.id===parsedID);
+const findUser=allUsers[findUserIndex];
 
-//if user does not exist
-if(!findUser) return response.sendStatus(404); //for not found status
-//if(!findUser) return response.status(404).send({msg: "User not found"});
-
-//otherwise
+if(!findUser) return response.sendStatus(404); 
 return response.send(findUser);
 });
 
 
-
-///////////////////////////////////////
-
-//Query Parameters
-app.get("/api/users", (request,response)=>{
-    console.log(request.query);
-    const {query: {filter, value},}=request; //destructured query from request
-
-
-//Assigning filtered data to a specific variable
-
-if (filter && value){ // // to check if filter and value are undefined
-    const filteredUsers= allUsers.filter((user)=>user[filter].includes(value));  
-return response.send(filteredUsers);
-}
-   response.send(allUsers);
-});
 
 //////////////////////////////////////
 
@@ -84,42 +105,23 @@ return response.send(filteredUsers);
 
 app.post('/api/users', (request,response)=>{
     const{body}=request;
-    const newUser= {id:allUsers[allUsers.length-1].id+1,...body}; //spread operator on body object to take all the fields from body object
-    allUsers.push(newUser);
-    return response.status(201).send(newUser);
-});
-
-
-// Additionall Validations examples of POST
-/*
-app.post('/api/users',(request,response)=>{
-    const {username, displayName}=request.body;
-
-    if(!username || ! displayName) return response.status(400).send({msg:"Field Missing"});
-
     const newUser= {id:allUsers[allUsers.length-1].id+1,...body}; 
     allUsers.push(newUser);
     return response.status(201).send(newUser);
 });
-*/
+
+
+
 ///////////////////////
 
 
 
 //PUT Request (updating enture resource)
 
-app.put('/api/users/:id',(request,response)=>{
-const {body, params:{id},}=request;
+app.put('/api/users/:id',handleUserByIndex,(request,response)=>{
+const { body, findUserIndex}=request; // body and index needed here , so destructured it
 
-const parsedID=parseInt(id);
-if(isNaN(parsedID)) return response.sendStatus(400);
-
-const findUserIndex=allUsers.findIndex((user)=>user.id===parsedID);
-//if no user found with ID, it returns false which is -1
-if (findUserIndex===-1) return response.sendStatus(404);
-
-//updating at specified id
-allUsers[findUserIndex]={id:parsedID,...body}; //everything else will come from body object except id
+allUsers[findUserIndex]={id:allUsers[findUserIndex].id,...body};// returns id
 
 return response.sendStatus(200);
 
@@ -131,17 +133,10 @@ return response.sendStatus(200);
 //PATCH Request
 
 
-app.patch('/api/users/:id', (request,response)=>{
-const {body, params:{id},}=request;
-
-const parsedID=parseInt(id);
-if(isNaN(parsedID)) return response.sendStatus(400);
-
-const findUserIndex=allUsers.findIndex((user)=>user.id===parsedID);
-if (findUserIndex===-1) return response.sendStatus(404);
+app.patch('/api/users/:id', handleUserByIndex,(request,response)=>{
+const {body, findUserIndex }=request;
 
 allUsers[findUserIndex]={...allUsers[findUserIndex],...body}; 
-//taking all the key value pairs of specified user and putting in new obj, then taking from request body so it will overwrite it.
 return response.sendStatus(200);
 });
 
@@ -150,22 +145,12 @@ return response.sendStatus(200);
 
 //DELETE Request
 
-app.delete('/api/users/:id',(request,response)=>{
-const { params:{id},}=request;
+app.delete('/api/users/:id',handleUserByIndex,(request,response)=>{
+const { findUserIndex}=request;
 
-const parsedID=parseInt(id);
-if(isNaN(parsedID)) return response.sendStatus(400);
-
-const findUserIndex=allUsers.findIndex((user)=>user.id===parsedID);
-if (findUserIndex===-1) return response.sendStatus(404);
-
-allUsers.splice(findUserIndex,1); //1 is delete count in splice function e.g in case ofcount=2 it deletes 2 elements at(after) the index provided
+allUsers.splice(findUserIndex,1); 
 return response.sendStatus(200);
 });
-
-
-
-
 
 
 
