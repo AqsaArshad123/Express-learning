@@ -117,7 +117,7 @@ if(isNaN(parsedID)) return response.sendStatus(400);
 const findUserIndex=allUsers.findIndex((user)=>user.id===parsedID);
 //if no user found with ID, it returns false which is -1
 if (findUserIndex===-1) return response.sendStatus(404);
-
+ 
 //updating at specified id
 allUsers[findUserIndex]={id:parsedID,...body}; //everything else will come from body object except id
 
