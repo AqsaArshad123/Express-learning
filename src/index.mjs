@@ -1,53 +1,13 @@
-import express, { request, response } from "express";
+import express from "express";
+import {query,validationResult,body,matchedData,checkSchema} from "express-validator";
+import { validateUserSchema } from "./utils/validationSchemas.mjs";
+
 
 const app=express();
-
-//Express Middleware (use to parse incoming request bodies in JSON format)
-//regiester middleware (app.use) before using routes other wise those routes wont work (Order matters)
 app.use(express.json()); 
-
-
-
-const loggingMiddleware=(request,response,next)=>{
-    console.log(`${request.method}- ${request.url}`);
-next();
-}
-
-//for using globally
-//app.use(loggingMiddleware); //will work only for the routes it is called before
-
-////////////////////////
-
-//pasing 2 or more middlewares in app use
-// app.use (loggingMiddleware,(request,response,next)=>{
-//     console.log(`Finished Log..`);
-// next();
-// });
-
-
-///////////////////////////////
-
-// Middleware
-const handleUserByIndex=(request,response,next)=>{
-const { params:{id},}=request;
-
-const parsedID=parseInt(id);
-if(isNaN(parsedID)) return response.sendStatus(400);
-
-const findUserIndex=allUsers.findIndex((user)=>user.id===parsedID);
-if (findUserIndex===-1) return response.sendStatus(404);
-//no direct method to pass this info from one middleware to other so 
-//Dynamically attaching properties to request object
-request.findUserIndex=findUserIndex;
-next();
-
-};
-
 
 const PORT= process.env.PORT || 3000;
 
-
-//for ID params
 const allUsers=[
         {id:1, username:"Aqsa", displayName:"aqsa"},
         {id:2, username:"Laiba", displayName:"laiba"},
@@ -58,99 +18,113 @@ const allUsers=[
         ];
 
 
-//passing middleware as arg for just particular
-// app.get("/",loggingMiddleware, (request,response)=>{
-//     response.status(201).send({msg:"Hello!"});
-// });
-
-//instead of variable, direct use
-
-app.get("/",(request,response,next)=>{
-// 2 or more middlewares so we send back a response (Allows writing additional logic)
-console.log('Base URL');
-next();
-}, (request,response,next)=>{
-console.log('Base URL1');
-next();
-},(request,response,next)=>{
-console.log('Base URL2');
-next();
-},(request,response)=>{ 
+app.get("/", (request,response)=>{
     response.status(201).send({msg:"Hello!"});
 });
-
 
 ////////////////////////////////////////
 
 //Route Parameters
 
+app.get('/api/users/:id', (request,response)=>{
+console.log(request.params);
+const parsedID=parseInt(request.params.id);
+console.log(parsedID); 
 
-//GET Request
+if (isNaN(parsedID)) return response.status(400).send({msg: "Bad Request. Invalid ID"});
 
-app.get('/api/users/:id',handleUserByIndex, (request,response)=>{
-const {findUserIndex}=request;
-
-const findUser=allUsers[findUserIndex];
-
+const findUser=allUsers.find((user) => user.id===parsedID);
 if(!findUser) return response.sendStatus(404); 
 return response.send(findUser);
 });
 
 
 
+///////////////////////////////////////
+
+//Query Parameters
+
+//query fun like isstring wont throw errors, they just validate, so we need to do that by ourselves
+app.get("/api/users", query('filter').isString().notEmpty().withMessage('Must not be Empty').isLength({min:3,max:10}).withMessage('Must be atleast 3-10 characters'),(request,response)=>{
+    //wihtMessage is for custom error message
+    
+    const result=validationResult(request); //inbuilt validaiton function
+console.log(result);
+
+    const {query: {filter, value},}=request; //destructured query from request
+
+if (filter && value){ 
+    const filteredUsers= allUsers.filter((user)=>user[filter].includes(value));  
+return response.send(filteredUsers);
+}
+   response.send(allUsers);
+});
+
 //////////////////////////////////////
 
 //POST Request
 
+// Query parameters : body is used to validate request body 
+//body middleware function first
 
-app.post('/api/users', (request,response)=>{
-    const{body}=request;
-    const newUser= {id:allUsers[allUsers.length-1].id+1,...body}; 
+//app.post('/api/users',body('username').notEmpty().withMessage('Must not be Empty').isString().withMessage('Must be String'),(request,response)=>{
+    
+// to validate multiple fields, we will pass array
+
+/*
+app.post('/api/users',[
+    body('username').notEmpty().withMessage('Must not be Empty').isString().withMessage('Must be String'),
+body('displayName').notEmpty().withMessage('Displayname must not be Empty')],
+(request,response)=>{
+
+    const result=validationResult(request);
+    console.log(result);
+
+if(!result.isEmpty())
+ return response.status(400).send({errors:result.array()}); //array method to give all the validation errors as array
+
+//to get the validate data 
+//using matched data function
+const data=matchedData(request);
+//console.log(data);
+;
+    const newUser= {id:allUsers[allUsers.length-1].id+1,...data}; //validation is done thought data so no need of body object
+    allUsers.push(newUser);
+    return response.status(201).send(newUser);
+});
+*/
+//using schema for validation as the above one is clustered up 
+
+app.post('/api/users',checkSchema(validateUserSchema),
+(request,response)=>{
+
+    const result=validationResult(request);
+    console.log(result);
+
+if(!result.isEmpty())
+ return response.status(400).send({errors:result.array()}); //array method to give all the validation errors as array
+
+//to get the validate data 
+//using matched data function
+const data=matchedData(request);
+//console.log(data);
+;
+    const newUser= {id:allUsers[allUsers.length-1].id+1,...data}; //validation is done thought data so no need of body object
     allUsers.push(newUser);
     return response.status(201).send(newUser);
 });
 
 
 
-///////////////////////
 
 
 
-//PUT Request (updating enture resource)
-
-app.put('/api/users/:id',handleUserByIndex,(request,response)=>{
-const { body, findUserIndex}=request; // body and index needed here , so destructured it
-
-allUsers[findUserIndex]={id:allUsers[findUserIndex].id,...body};// returns id
-
-return response.sendStatus(200);
-
-});
+///////////////////////////////
 
 
-////////////////////////
-
-//PATCH Request
 
 
-app.patch('/api/users/:id', handleUserByIndex,(request,response)=>{
-const {body, findUserIndex }=request;
 
-allUsers[findUserIndex]={...allUsers[findUserIndex],...body}; 
-return response.sendStatus(200);
-});
-
-
-//////////////////////////
-
-//DELETE Request
-
-app.delete('/api/users/:id',handleUserByIndex,(request,response)=>{
-const { findUserIndex}=request;
-
-allUsers.splice(findUserIndex,1); 
-return response.sendStatus(200);
-});
 
 
 
