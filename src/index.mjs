@@ -65,7 +65,8 @@ return response.send(filteredUsers);
 //POST Request
 
 // Query parameters : body is used to validate request body 
-//body middleware function first
+
+////////////body middleware function first////////////
 
 //app.post('/api/users',body('username').notEmpty().withMessage('Must not be Empty').isString().withMessage('Must be String'),(request,response)=>{
     
@@ -93,6 +94,8 @@ const data=matchedData(request);
     return response.status(201).send(newUser);
 });
 */
+
+
 //using schema for validation as the above one is clustered up 
 
 app.post('/api/users',checkSchema(validateUserSchema),
